@@ -11,6 +11,7 @@ class AuthService {
       phone,
       address,
       role,
+      location,
       experience_years,
       specialty,
     } = data;
@@ -35,6 +36,7 @@ class AuthService {
         password,
         phone,
         address,
+        location,
         role: "technician",
         experience_years,
         specialty,
@@ -46,6 +48,7 @@ class AuthService {
         password,
         phone,
         address,
+        location,
         role: "client",
       });
     }
