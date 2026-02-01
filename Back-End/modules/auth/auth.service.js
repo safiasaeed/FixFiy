@@ -1,6 +1,8 @@
 const { User, Client, Technician, Admin } = require("../users/user.model");
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken"); // ADD THIS
 const generateToken = require("../../utils/jwt");
+const redisClient = require("../../config/redis"); // Import from config
 
 class AuthService {
   async register(data) {
@@ -71,11 +73,12 @@ class AuthService {
       throw new Error("Invalid credentials");
     }
 
-    // const token = generateToken(user); 
+    // FIX: Should pass user._id, not entire user object
     const token = generateToken(user._id);
 
     return { user, token };
   }
+
   // Request password reset
   async requestPasswordReset(email) {
     const user = await User.findOne({ email });
@@ -89,6 +92,30 @@ class AuthService {
     await user.save({ validateBeforeSave: false });
 
     return resetToken;
+  }
+
+  async blacklistToken(token) {
+    try {
+      // Decode token to get expiration
+      const decoded = jwt.decode(token);
+      
+      if (!decoded || !decoded.exp) {
+        throw new Error('Invalid token');
+      }
+      
+      // Calculate TTL (time until token expires)
+      const expiresIn = decoded.exp - Math.floor(Date.now() / 1000);
+      
+      // Only blacklist if token hasn't expired yet
+      if (expiresIn > 0) {
+        // Store in Redis with TTL matching token expiration
+        await redisClient.setEx(`blacklist_${token}`, expiresIn, 'true');
+      }
+      
+      return true;
+    } catch (error) {
+      throw new Error('Failed to blacklist token');
+    }
   }
 
   // Reset password using token
@@ -131,6 +158,11 @@ class AuthService {
     });
 
     return !!user;
+  }
+
+  // Helper method
+  async getUserByEmail(email) {
+    return await User.findOne({ email });
   }
 }
 

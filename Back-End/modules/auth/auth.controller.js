@@ -40,6 +40,34 @@ const login = async (req, res) => {
   }
 };
 
+// logout function
+const logout = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1]; // Get token from Bearer
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "No token provided"
+      });
+    }
+    
+    // Add token to blacklist
+    await AuthService.blacklistToken(token);
+    
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
 // Forgot password (request reset)
 const forgotPassword = async (req, res) => {
   try {
@@ -204,4 +232,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   verifyResetToken,
+  logout,
 };

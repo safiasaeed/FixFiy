@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-// exports.router = router;
 const {
   updateProfile,
   getDashboardData,
