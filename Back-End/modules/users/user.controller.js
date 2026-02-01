@@ -99,12 +99,12 @@ const updateProfile = async (req, res) => {
 const updateUserLocation = async (req, res) => {
   try {
     const { coordinates } = req.body; // input shape => coordinates: [lng, lat]
-    
+
     // Validate coordinates exist and have correct shape
     if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Coordinates must be an array of [lng, lat]" 
+        message: "Coordinates must be an array of [lng, lat]"
       });
     }
 
@@ -112,9 +112,9 @@ const updateUserLocation = async (req, res) => {
 
     // Validate coordinate ranges
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid lat/lng values" 
+        message: "Invalid lat/lng values"
       });
     }
 
