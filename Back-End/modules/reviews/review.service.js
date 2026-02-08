@@ -8,9 +8,7 @@ const { emitNotification } =
   require("../../utils/emitNotification");
 
 class ReviewService {
-  /* =========================
-     CREATE REVIEW (CLIENT)
-  ========================== */
+  /* ================= CREATE REVIEW ================= */
   async createReview({ jobId, clientId, rating, comment }) {
     if (!mongoose.Types.ObjectId.isValid(jobId))
       throw new Error("Invalid jobId");
@@ -23,6 +21,9 @@ class ReviewService {
 
     if (job.status !== "DONE")
       throw new Error("Job must be completed before review");
+
+    if (!job.workerId)
+      throw new Error("Job has no assigned technician");
 
     const exists = await Review.findOne({ jobId });
     if (exists) throw new Error("Review already submitted");
@@ -37,6 +38,7 @@ class ReviewService {
 
     await this.recalculateWorkerRating(job.workerId);
 
+    /* ===== NOTIFICATION ===== */
     await createNotification({
       userId: job.workerId,
       type: "NEW_REVIEW",
@@ -47,25 +49,23 @@ class ReviewService {
 
     emitNotification(job.workerId, {
       type: "NEW_REVIEW",
-      title: "New Review",
-      message: "Check your profile",
+      reviewId: review._id,
     });
 
     return review;
   }
 
-  /* =========================
-     GET WORKER REVIEWS
-  ========================== */
+  /* ================= GET WORKER REVIEWS ================= */
   async getWorkerReviews(workerId) {
+    if (!mongoose.Types.ObjectId.isValid(workerId))
+      throw new Error("Invalid workerId");
+
     return Review.find({ workerId })
       .populate("clientId", "name")
       .sort({ createdAt: -1 });
   }
 
-  /* =========================
-     ADMIN – UPDATE REVIEW
-  ========================== */
+  /* ================= ADMIN UPDATE REVIEW ================= */
   async adminUpdateReview(reviewId, updates) {
     if (!mongoose.Types.ObjectId.isValid(reviewId))
       throw new Error("Invalid reviewId");
@@ -89,9 +89,7 @@ class ReviewService {
     return review;
   }
 
-  /* =========================
-     ADMIN – DELETE REVIEW
-  ========================== */
+  /* ================= ADMIN DELETE REVIEW ================= */
   async adminDeleteReview(reviewId) {
     if (!mongoose.Types.ObjectId.isValid(reviewId))
       throw new Error("Invalid reviewId");
@@ -107,9 +105,7 @@ class ReviewService {
     return { message: "Review deleted successfully" };
   }
 
-  /* =========================
-     RECALCULATE RATING
-  ========================== */
+  /* ================= RECALCULATE RATING ================= */
   async recalculateWorkerRating(workerId) {
     const reviews = await Review.find({ workerId });
 
@@ -120,7 +116,7 @@ class ReviewService {
           reviews.length;
 
     await User.findByIdAndUpdate(workerId, {
-      technician_rate: avg.toFixed(1),
+      technician_rate: Number(avg.toFixed(1)),
     });
   }
 }

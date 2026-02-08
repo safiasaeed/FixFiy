@@ -30,13 +30,13 @@ const paymentsRoutes = require("./modules/payments/payment.routes");
 const jobsRoutes = require("./modules/jobs/job.routes");
 const walletRoutes = require("./modules/payments/wallet.routes");
 
+app.use("/api/profile",userRoutes );
+app.use("/api/auth", authRoutes );
+
 app.use("/api", walletRoutes);
 app.use("/api", jobsRoutes);
 app.use("/api", paymentsRoutes);
 
-
-app.use("/api/profile",userRoutes );
-app.use("/api/auth", authRoutes );
 
 app.use("/api/", messagingRoutes);
 app.use("/api/notifications", notificationRoutes);
@@ -44,7 +44,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", withdrawRoutes);
 app.use("/api", require("./modules/reviews/review.routes"));
-
+app.use("/api", require("./modules/services/service.routes"));
 const server = http.createServer(app);
 initSocket(server);
 

@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const jobSchema = new mongoose.Schema(
   {
-    // ================= Core Info =================
+    /* ================= CORE ================= */
     title: {
       type: String,
       required: true,
@@ -10,11 +10,6 @@ const jobSchema = new mongoose.Schema(
       minLength: 3,
       maxLength: 30,
     },
-    serviceId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Service",
-  required: true
-},
 
     description: {
       type: String,
@@ -23,7 +18,24 @@ const jobSchema = new mongoose.Schema(
       minLength: 15,
     },
 
-    // ================= Relations =================
+    /* ================= SERVICE ================= */
+    jobType: {
+      type: String,
+      enum: ["ADMIN_SERVICE", "TECHNICIAN_SERVICE"],
+      required: true,
+    },
+
+    serviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
+    },
+
+    technicianServiceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TechnicianService",
+    },
+
+    /* ================= RELATIONS ================= */
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -35,14 +47,14 @@ const jobSchema = new mongoose.Schema(
       ref: "User",
     },
 
-    // ================= Status =================
+    /* ================= STATUS ================= */
     status: {
       type: String,
       enum: ["PENDING", "ACCEPTED", "ACTIVE", "DONE", "CANCELED"],
       default: "PENDING",
     },
 
-    // ================= Pricing =================
+    /* ================= PRICING ================= */
     total_price: {
       type: Number,
       required: true,
@@ -57,7 +69,7 @@ const jobSchema = new mongoose.Schema(
       max: 100,
     },
 
-    // ================= Payment =================
+    /* ================= PAYMENT ================= */
     paymentStatus: {
       type: String,
       enum: ["UNPAID", "DEPOSIT_PAID", "PAID"],
@@ -74,12 +86,13 @@ const jobSchema = new mongoose.Schema(
       enum: ["PAYPAL", "PAYMOB", "CASH"],
     },
 
-    paymentRef: String, // gateway reference id
+    paymentRef: String,
   },
   { timestamps: true }
 );
 
-// ================= Virtuals =================
+/* ================= VIRTUALS ================= */
+
 jobSchema.virtual("commission_amount").get(function () {
   return +(this.total_price * (this.site_commission / 100)).toFixed(2);
 });
