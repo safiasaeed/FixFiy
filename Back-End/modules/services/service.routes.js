@@ -1,36 +1,33 @@
-const express = require("express");
-const router = express.Router();
-const {
-    addService,
-    updateService,
-    deleteService,
-    getAllServices,
-    getService,
-    search,
-    getAutocompleteSuggestions,
-} = require('./service.controller');
+const router = require("express").Router();
+const controller = require("./service.controller");
 const { protect } = require("../../middlewares/auth.middleware");
 const { authorize } = require("../../middlewares/role.middleware");
 
-// Get all Services
-router.get('/services', getAllServices)
+router.get("/services", controller.getAllServices);
+router.get("/service/:id", controller.getService);
 
-//Add New Service
-router.post('/service', protect, authorize('admin'), addService)
+router.post(
+  "/service",
+  protect,
+  authorize("admin"),
+  controller.addService
+);
 
-// Get Service by Id
-router.get('service/:id', protect, getService)
+router.put(
+  "/service/:id",
+  protect,
+  authorize("admin"),
+  controller.updateService
+);
 
-//Update or Edit Service by Id
-router.put('/service/:id', protect, authorize('admin'), updateService)
+router.delete(
+  "/service/:id",
+  protect,
+  authorize("admin"),
+  controller.deleteService
+);
 
-//Delete Service by Id
-router.delete('service/:id', protect, authorize('admin'), deleteService)
-
-// **SEARCH ENDPOINT - searches name, category, description**
-router.get("/search", search);
-
-// **AUTOCOMPLETE ENDPOINT - searches name, category, description**
-router.get("/autocomplete", getAutocompleteSuggestions);
+router.get("/services/search", controller.search);
+router.get("/services/autocomplete", controller.getAutocompleteSuggestions);
 
 module.exports = router;
