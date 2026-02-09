@@ -5,7 +5,7 @@ const walletController = require("./wallet.controller");
 
 // Worker wallet
 router.get(
-  "/wallet",
+  "/",
   protect,
   authorize("technician"),
   walletController.getMyWallet

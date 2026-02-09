@@ -5,7 +5,18 @@ const controller = require("./payment.controller");
 
 router.use(protect);
 
-router.post("/payments/deposit", authorize("client"), controller.deposit);
-router.post("/payments/final", authorize("client"), controller.final);
+// Client pays deposit
+router.post(
+  "/deposit",
+  authorize("client"),
+  controller.deposit
+);
+
+// Client pays final payment
+router.post(
+  "/final",
+  authorize("client"),
+  controller.final
+);
 
 module.exports = router;

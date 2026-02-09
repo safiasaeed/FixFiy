@@ -3,70 +3,50 @@ const controller = require("./job.controller");
 const { protect } = require("../../middlewares/auth.middleware");
 const { authorize } = require("../../middlewares/role.middleware");
 
-/* ======================
-   CLIENT
-====================== */
-
+/* ========= CLIENT ========= */
 router.post(
-  "/jobs",
+  "/",
   protect,
   authorize("client"),
   controller.createJob
 );
 
 router.patch(
-  "/jobs/:id/cancel",
+  "/:id/cancel",
   protect,
+  authorize("client"),
   controller.cancelJob
 );
 
-/* ======================
-   TECHNICIAN
-====================== */
-
+/* ========= TECHNICIAN ========= */
 router.patch(
-  "/jobs/:id/accept",
+  "/:id/accept",
   protect,
   authorize("technician"),
   controller.acceptJob
 );
 
 router.patch(
-  "/jobs/:id/start",
+  "/:id/start",
   protect,
   authorize("technician"),
   controller.startJob
 );
 
 router.patch(
-  "/jobs/:id/complete",
+  "/:id/complete",
   protect,
   authorize("technician"),
   controller.completeJob
 );
 
-/* ======================
-   SHARED
-====================== */
+/* ========= SHARED ========= */
+router.get("/:id", protect, controller.getJobById);
+router.get("/", protect, controller.getAllJobs);
 
-router.get(
-  "/jobs/:id",
-  protect,
-  controller.getJobById
-);
-
-router.get(
-  "/jobs",
-  protect,
-  controller.getAllJobs
-);
-
-/* ======================
-   ADMIN
-====================== */
-
+/* ========= ADMIN ========= */
 router.patch(
-  "/jobs/:id/status",
+  "/:id/status",
   protect,
   authorize("admin"),
   controller.updateStatus

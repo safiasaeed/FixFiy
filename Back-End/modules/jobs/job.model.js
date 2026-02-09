@@ -10,17 +10,18 @@ const jobSchema = new mongoose.Schema(
       minLength: 3,
       maxLength: 30,
     },
-    serviceId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Service",
-  required: true
-},
 
     description: {
       type: String,
       required: true,
       trim: true,
       minLength: 15,
+    },
+
+    serviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
+      required: true,
     },
 
     // ================= Relations =================
@@ -35,12 +36,34 @@ const jobSchema = new mongoose.Schema(
       ref: "User",
     },
 
+    reviewId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Review",
+    },
+
     // ================= Status =================
     status: {
       type: String,
       enum: ["PENDING", "ACCEPTED", "ACTIVE", "DONE", "CANCELED"],
       default: "PENDING",
     },
+
+    statusHistory: [
+      {
+        status: String,
+        changedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    canceledBy: {
+      type: String,
+      enum: ["CLIENT", "TECHNICIAN", "ADMIN"],
+    },
+
+    cancelReason: String,
 
     // ================= Pricing =================
     total_price: {
@@ -74,10 +97,15 @@ const jobSchema = new mongoose.Schema(
       enum: ["PAYPAL", "PAYMOB", "CASH"],
     },
 
-    paymentRef: String, // gateway reference id
+    paymentRef: String,
   },
   { timestamps: true }
 );
+
+// ================= Indexes =================
+jobSchema.index({ clientId: 1 });
+jobSchema.index({ workerId: 1 });
+jobSchema.index({ status: 1 });
 
 // ================= Virtuals =================
 jobSchema.virtual("commission_amount").get(function () {
@@ -86,6 +114,14 @@ jobSchema.virtual("commission_amount").get(function () {
 
 jobSchema.virtual("provider_earnings").get(function () {
   return +(this.total_price - this.commission_amount).toFixed(2);
+});
+jobSchema.virtual("uiState").get(function () {
+  return {
+    canReview: this.status === "DONE" && !this.reviewId,
+    canChat: ["ACCEPTED", "ACTIVE"].includes(this.status),
+    canAccept: this.status === "PENDING",
+    canPayFinal: this.status === "DONE" && this.paymentStatus !== "PAID",
+  };
 });
 
 jobSchema.set("toJSON", { virtuals: true });

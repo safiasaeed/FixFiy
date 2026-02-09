@@ -1,24 +1,20 @@
 const jobService = require("./job.service");
 
-/* ======================
-   CLIENT
-====================== */
+/* ========= CLIENT ========= */
 
 exports.createJob = async (req, res) => {
   try {
-    const { title, description, total_price } = req.body;
+    const { title, description, total_price, serviceId } =
+      req.body;
 
-    if (!title || !description || !total_price) {
-      return res.status(400).json({
-        success: false,
-        message: "title, description, total_price are required",
-      });
-    }
+    if (!title || !description || !total_price || !serviceId)
+      throw new Error("Missing required fields");
 
     const job = await jobService.createJob({
       title,
       description,
       total_price,
+      serviceId,
       clientId: req.user.id,
     });
 
@@ -30,19 +26,17 @@ exports.createJob = async (req, res) => {
 
 exports.cancelJob = async (req, res) => {
   try {
-    const job = await jobService.cancelJob(
-      req.params.id,
-      req.user.id
-    );
+    const job = await jobService.cancelJob(req.params.id, {
+      canceledBy: "CLIENT",
+      reason: req.body.reason,
+    });
     res.json({ success: true, data: job });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-/* ======================
-   TECHNICIAN
-====================== */
+/* ========= TECHNICIAN ========= */
 
 exports.acceptJob = async (req, res) => {
   try {
@@ -74,9 +68,7 @@ exports.completeJob = async (req, res) => {
   }
 };
 
-/* ======================
-   SHARED
-====================== */
+/* ========= SHARED ========= */
 
 exports.getJobById = async (req, res) => {
   try {
@@ -89,24 +81,22 @@ exports.getJobById = async (req, res) => {
 
 exports.getAllJobs = async (req, res) => {
   try {
-    const jobs = await jobService.getAllJobs(req.query);
+    const jobs = await jobService.getAllJobs();
     res.json({ success: true, data: jobs });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
 };
 
-/* ======================
-   ADMIN
-====================== */
+/* ========= ADMIN ========= */
 
 exports.updateStatus = async (req, res) => {
   try {
-    const result = await jobService.updateStatus(
+    const job = await jobService.updateStatus(
       req.params.id,
       req.body.status
     );
-    res.json({ success: true, ...result });
+    res.json({ success: true, data: job });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }

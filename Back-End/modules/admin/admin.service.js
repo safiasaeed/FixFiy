@@ -3,13 +3,13 @@ const Job = require("../jobs/job.model");
 const Payment = require("../payments/payment.model");
 const AuditLog = require("./auditLog.model");
 const SystemSettings = require("./systemSettings.model");
+const jobService = require("../jobs/job.service");
 const { createNotification } =
   require("../notifications/notification.service");
 const { emitNotification } =
   require("../../utils/emitNotification");
 
 /* ================= DASHBOARD ================= */
-
 const getDashboardStats = async () => {
   const users = {
     total: await User.countDocuments(),
@@ -28,20 +28,19 @@ const getDashboardStats = async () => {
     ]),
   };
 
-  const revenueAgg = await Payment.aggregate([
-    { $match: { status: "PAID" } },
-    { $group: { _id: null, total: { $sum: "$platformCommission" } } },
-  ]);
+  // ✅ revenue من Jobs المكتملة
+  const completedJobs = await Job.find({ status: "DONE" });
+  const revenue = completedJobs.reduce(
+    (sum, job) =>
+      sum +
+      (job.total_price * job.site_commission) / 100,
+    0
+  );
 
-  return {
-    users,
-    jobs,
-    revenue: revenueAgg[0]?.total || 0,
-  };
+  return { users, jobs, revenue };
 };
 
 /* ================= ANALYTICS ================= */
-
 const getAnalytics = async (range = "daily") => {
   const format = range === "monthly" ? "%Y-%m" : "%Y-%m-%d";
 
@@ -71,23 +70,14 @@ const getAnalytics = async (range = "daily") => {
     { $sort: { "_id.date": 1 } },
   ]);
 
-  const revenue = await Payment.aggregate([
-    { $match: { status: "PAID" } },
-    {
-      $group: {
-        _id: { $dateToString: { format, date: "$createdAt" } },
-        total: { $sum: "$platformCommission" },
-      },
-    },
-    { $sort: { _id: 1 } },
-  ]);
-
-  return { users, jobs, revenue };
+  return { users, jobs };
 };
 
 /* ================= USERS ================= */
-
 const suspendUser = async (adminId, userId) => {
+  if (adminId.toString() === userId.toString())
+    throw new Error("Admin cannot suspend himself");
+
   const user = await User.findById(userId);
   if (!user) throw new Error("User not found");
 
@@ -98,13 +88,12 @@ const suspendUser = async (adminId, userId) => {
     userId,
     type: "ACCOUNT_SUSPENDED",
     title: "Account Suspended",
-    message: "Your account has been suspended by admin",
+    message: "Your account was suspended by admin",
   });
 
   emitNotification(userId, {
     type: "ACCOUNT_SUSPENDED",
     title: "Account Suspended",
-    message: "Your account has been suspended by admin",
   });
 
   await AuditLog.create({
@@ -124,19 +113,6 @@ const restoreUser = async (adminId, userId) => {
   user.status = "ACTIVE";
   await user.save();
 
-  await createNotification({
-    userId,
-    type: "ADMIN_ALERT",
-    title: "Account Restored",
-    message: "Your account has been restored by admin",
-  });
-
-  emitNotification(userId, {
-    type: "ADMIN_ALERT",
-    title: "Account Restored",
-    message: "Your account has been restored by admin",
-  });
-
   await AuditLog.create({
     adminId,
     action: "USER_RESTORED",
@@ -155,19 +131,6 @@ const verifyTechnician = async (adminId, techId) => {
   tech.isVerified = true;
   await tech.save();
 
-  await createNotification({
-    userId: techId,
-    type: "ACCOUNT_VERIFIED",
-    title: "Account Verified",
-    message: "Your technician account has been verified",
-  });
-
-  emitNotification(techId, {
-    type: "ACCOUNT_VERIFIED",
-    title: "Account Verified",
-    message: "Your technician account has been verified",
-  });
-
   await AuditLog.create({
     adminId,
     action: "TECHNICIAN_VERIFIED",
@@ -179,34 +142,16 @@ const verifyTechnician = async (adminId, techId) => {
 };
 
 /* ================= JOBS ================= */
-
 const cancelJobByAdmin = async (adminId, jobId) => {
-  const job = await Job.findById(jobId);
-  if (!job) throw new Error("Job not found");
-
-  job.status = "CANCELLED";
-  await job.save();
-
-  for (const userId of [job.clientId, job.workerId]) {
-    await createNotification({
-      userId,
-      type: "JOB_CANCELLED",
-      title: "Job Cancelled",
-      message: "Job cancelled by admin",
-      referenceId: jobId,
-    });
-
-    emitNotification(userId, {
-      type: "JOB_CANCELLED",
-      title: "Job Cancelled",
-      message: "Job cancelled by admin",
-      referenceId: jobId,
-    });
-  }
+  // ✅ استخدم JobService (مش direct update)
+  const job = await jobService.cancelJob(jobId, {
+    canceledBy: "ADMIN",
+    reason: "Cancelled by admin",
+  });
 
   await AuditLog.create({
     adminId,
-    action: "JOB_CANCELLED",
+    action: "JOB_CANCELED",
     targetType: "JOB",
     targetId: jobId,
   });
@@ -215,7 +160,6 @@ const cancelJobByAdmin = async (adminId, jobId) => {
 };
 
 /* ================= SETTINGS ================= */
-
 const getSystemSettings = async () =>
   await SystemSettings.getSettings();
 
@@ -225,11 +169,12 @@ const updateSystemSettings = async (adminId, updates) => {
   settings.updatedBy = adminId;
   await settings.save();
 
-  emitNotification(adminId, {
-    type: "SYSTEM_ALERT",
-    title: "Settings Updated",
-    message: "System settings updated successfully",
-  });
+  // ✅ تحديث العمولة في JobService
+  if (updates.platformCommissionPercent !== undefined) {
+    jobService.updateCommissionRate(
+      updates.platformCommissionPercent
+    );
+  }
 
   await AuditLog.create({
     adminId,
@@ -242,25 +187,15 @@ const updateSystemSettings = async (adminId, updates) => {
 };
 
 /* ================= AUDIT LOGS ================= */
-
-const getAuditLogs = async () => {
-  return await AuditLog.find()
+const getAuditLogs = async () =>
+  AuditLog.find()
     .populate("adminId", "name email")
     .sort({ createdAt: -1 });
-};
 
 /* ================= USERS LIST ================= */
-
 const getAllUsers = async (query = {}) => {
-  const {
-    role,
-    status,
-    page = 1,
-    limit = 20,
-  } = query;
-
+  const { role, status, page = 1, limit = 20 } = query;
   const filter = {};
-
   if (role) filter.role = role;
   if (status) filter.status = status;
 

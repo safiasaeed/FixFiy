@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const Review = require("./review.model");
 const Job = require("../jobs/job.model");
-const User = require("../users/user.model");
+const { User } = require("../users/user.model");
+
 const { createNotification } =
   require("../notifications/notification.service");
 const { emitNotification } =
@@ -24,6 +25,9 @@ class ReviewService {
     if (job.status !== "DONE")
       throw new Error("Job must be completed before review");
 
+    if (!job.workerId)
+      throw new Error("Job has no assigned worker");
+
     const exists = await Review.findOne({ jobId });
     if (exists) throw new Error("Review already submitted");
 
@@ -35,8 +39,15 @@ class ReviewService {
       comment,
     });
 
+    // Link review to job
+    await Job.findByIdAndUpdate(jobId, {
+      reviewId: review._id,
+    });
+
+    // Recalculate worker rating
     await this.recalculateWorkerRating(job.workerId);
 
+    // Notifications
     await createNotification({
       userId: job.workerId,
       type: "NEW_REVIEW",
@@ -58,8 +69,11 @@ class ReviewService {
      GET WORKER REVIEWS
   ========================== */
   async getWorkerReviews(workerId) {
+    if (!mongoose.Types.ObjectId.isValid(workerId))
+      throw new Error("Invalid workerId");
+
     return Review.find({ workerId })
-      .populate("clientId", "name")
+      .populate("clientId", "name profileImage")
       .sort({ createdAt: -1 });
   }
 
@@ -72,6 +86,14 @@ class ReviewService {
 
     const review = await Review.findById(reviewId);
     if (!review) throw new Error("Review not found");
+
+    // Optional: limit editing time
+    const HOURS_LIMIT = 48;
+    const diffHours =
+      (Date.now() - review.createdAt) / (1000 * 60 * 60);
+
+    if (diffHours > HOURS_LIMIT)
+      throw new Error("Review can no longer be edited");
 
     if (updates.rating !== undefined) {
       if (updates.rating < 1 || updates.rating > 5)
@@ -100,7 +122,14 @@ class ReviewService {
     if (!review) throw new Error("Review not found");
 
     const workerId = review.workerId;
+    const jobId = review.jobId;
+
     await review.deleteOne();
+
+    // Unlink review from job
+    await Job.findByIdAndUpdate(jobId, {
+      $unset: { reviewId: "" },
+    });
 
     await this.recalculateWorkerRating(workerId);
 
@@ -108,7 +137,7 @@ class ReviewService {
   }
 
   /* =========================
-     RECALCULATE RATING
+     RECALCULATE WORKER RATING
   ========================== */
   async recalculateWorkerRating(workerId) {
     const reviews = await Review.find({ workerId });
@@ -120,7 +149,8 @@ class ReviewService {
           reviews.length;
 
     await User.findByIdAndUpdate(workerId, {
-      technician_rate: avg.toFixed(1),
+      technician_rate: Number(avg.toFixed(1)),
+      ratingCount: reviews.length,
     });
   }
 }
