@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const jobSchema = new mongoose.Schema(
   {
-    /* ================= CORE ================= */
+    // ================= Core Info =================
     title: {
       type: String,
       required: true,
@@ -18,24 +18,13 @@ const jobSchema = new mongoose.Schema(
       minLength: 15,
     },
 
-    /* ================= SERVICE ================= */
-    jobType: {
-      type: String,
-      enum: ["ADMIN_SERVICE", "TECHNICIAN_SERVICE"],
-      required: true,
-    },
-
     serviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Service",
+      required: true,
     },
 
-    technicianServiceId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "TechnicianService",
-    },
-
-    /* ================= RELATIONS ================= */
+    // ================= Relations =================
     clientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -47,14 +36,36 @@ const jobSchema = new mongoose.Schema(
       ref: "User",
     },
 
-    /* ================= STATUS ================= */
+    reviewId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Review",
+    },
+
+    // ================= Status =================
     status: {
       type: String,
       enum: ["PENDING", "ACCEPTED", "ACTIVE", "DONE", "CANCELED"],
       default: "PENDING",
     },
 
-    /* ================= PRICING ================= */
+    statusHistory: [
+      {
+        status: String,
+        changedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    canceledBy: {
+      type: String,
+      enum: ["CLIENT", "TECHNICIAN", "ADMIN"],
+    },
+
+    cancelReason: String,
+
+    // ================= Pricing =================
     total_price: {
       type: Number,
       required: true,
@@ -69,7 +80,7 @@ const jobSchema = new mongoose.Schema(
       max: 100,
     },
 
-    /* ================= PAYMENT ================= */
+    // ================= Payment =================
     paymentStatus: {
       type: String,
       enum: ["UNPAID", "DEPOSIT_PAID", "PAID"],
@@ -91,14 +102,26 @@ const jobSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/* ================= VIRTUALS ================= */
+// ================= Indexes =================
+jobSchema.index({ clientId: 1 });
+jobSchema.index({ workerId: 1 });
+jobSchema.index({ status: 1 });
 
+// ================= Virtuals =================
 jobSchema.virtual("commission_amount").get(function () {
   return +(this.total_price * (this.site_commission / 100)).toFixed(2);
 });
 
 jobSchema.virtual("provider_earnings").get(function () {
   return +(this.total_price - this.commission_amount).toFixed(2);
+});
+jobSchema.virtual("uiState").get(function () {
+  return {
+    canReview: this.status === "DONE" && !this.reviewId,
+    canChat: ["ACCEPTED", "ACTIVE"].includes(this.status),
+    canAccept: this.status === "PENDING",
+    canPayFinal: this.status === "DONE" && this.paymentStatus !== "PAID",
+  };
 });
 
 jobSchema.set("toJSON", { virtuals: true });

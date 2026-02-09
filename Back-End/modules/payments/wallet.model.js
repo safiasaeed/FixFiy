@@ -7,12 +7,20 @@ const transactionSchema = new mongoose.Schema(
       enum: ["EARNING", "WITHDRAW", "REFUND"],
       required: true,
     },
+
     amount: {
       type: Number,
       required: true,
+      min: 0,
     },
+
     referenceId: {
       type: mongoose.Schema.Types.ObjectId,
+    },
+
+    referenceType: {
+      type: String,
+      enum: ["JOB", "PAYMENT", "WITHDRAW"],
     },
   },
   { timestamps: true }
@@ -26,11 +34,13 @@ const walletSchema = new mongoose.Schema(
       unique: true,
       required: true,
     },
+
     balance: {
       type: Number,
       default: 0,
       min: 0,
     },
+
     transactions: [transactionSchema],
   },
   { timestamps: true }

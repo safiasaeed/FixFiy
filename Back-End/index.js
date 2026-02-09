@@ -1,53 +1,79 @@
 const dotenv = require("dotenv");
 dotenv.config();
-const express = require('express');
+
+const express = require("express");
 const http = require("http");
+
+const connectDB = require("./config/db");
 const initSocket = require("./socket");
 const { generalLimiter } = require("./middlewares/rateLimit");
+const { protect } = require("./middlewares/auth.middleware");
+const { authorize } = require("./middlewares/role.middleware");
 
 const app = express();
-// const PORT = 3001
-const connectDB = require("./config/db");
 
-// Load environment variables
-
-
-// Connect to database
-connectDB();
-
-app.use(generalLimiter);
+/* ========================
+   BASIC MIDDLEWARES
+======================== */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(generalLimiter);
 
+/* ========================
+   DATABASE
+======================== */
+connectDB();
 
-const userRoutes = require('./modules/users/user.routes')
-const authRoutes = require("./modules/auth/auth.routes")
+/* ========================
+   ROUTES IMPORT
+======================== */
+const authRoutes = require("./modules/auth/auth.routes");
+const userRoutes = require("./modules/users/user.routes");
+const serviceRoutes = require("./modules/services/service.routes");
+const jobRoutes = require("./modules/jobs/job.routes");
+const paymentRoutes = require("./modules/payments/payment.routes");
+const walletRoutes = require("./modules/payments/wallet.routes");
+const withdrawRoutes = require("./modules/payments/withdraw.routes");
+const reviewRoutes = require("./modules/reviews/review.routes");
 const messagingRoutes = require("./modules/messaging/messaging.routes");
 const notificationRoutes = require("./modules/notifications/notification.routes");
 const adminRoutes = require("./modules/admin/admin.routes");
-const withdrawRoutes = require("./modules/payments/withdraw.routes");
-const paymentsRoutes = require("./modules/payments/payment.routes");
-const jobsRoutes = require("./modules/jobs/job.routes");
-const walletRoutes = require("./modules/payments/wallet.routes");
 
-app.use("/api/profile",userRoutes );
-app.use("/api/auth", authRoutes );
+/* ========================
+   PUBLIC ROUTES (NO TOKEN)
+======================== */
+app.use("/api/auth", authRoutes);
+app.use("/api/services", serviceRoutes);
+app.use("/api/reviews", reviewRoutes);
 
-app.use("/api", walletRoutes);
-app.use("/api", jobsRoutes);
-app.use("/api", paymentsRoutes);
+/* ========================
+   PROTECTED ROUTES
+======================== */
+app.use("/api/profile", protect, userRoutes);
+app.use("/api/jobs", protect, jobRoutes);
+app.use("/api/payments", protect, paymentRoutes);
+app.use("/api/wallet", protect, walletRoutes);
+app.use("/api/withdraw", protect, withdrawRoutes);
+app.use("/api/messages", protect, messagingRoutes);
+app.use("/api/notifications", protect, notificationRoutes);
 
+/* ========================
+   ADMIN ROUTES
+======================== */
+app.use(
+  "/api/admin",
+  protect,
+  authorize("admin"),
+  adminRoutes
+);
 
-app.use("/api/", messagingRoutes);
-app.use("/api/notifications", notificationRoutes);
-
-app.use("/api/admin", adminRoutes);
-app.use("/api", withdrawRoutes);
-app.use("/api", require("./modules/reviews/review.routes"));
-app.use("/api", require("./modules/services/service.routes"));
+/* ========================
+   SERVER + SOCKET
+======================== */
 const server = http.createServer(app);
 initSocket(server);
 
-server.listen(3001, () => {
-    console.log("Server is Running ...")
-})
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});

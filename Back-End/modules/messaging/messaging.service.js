@@ -21,9 +21,10 @@ const createConversation = async (jobId, userId) => {
   const job = await Job.findById(jobId);
   if (!job) throw new Error("Job not found");
 
-  if (!["ACCEPTED", "IN_PROGRESS"].includes(job.status)) {
-    throw new Error("Conversation not allowed for this job");
-  }
+  if (!["ACCEPTED", "ACTIVE"].includes(job.status)) {
+  throw new Error("Conversation not allowed for this job");
+}
+
 
   const userIdStr = userId.toString();
 

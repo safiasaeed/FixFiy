@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const controller = require("./admin.controller");
 const { protect } = require("../../middlewares/auth.middleware");
-const {authorize} = require("../../middlewares/role.middleware");
+const { authorize } = require("../../middlewares/role.middleware");
 
 router.use(protect, authorize("admin"));
 

@@ -1,5 +1,5 @@
 const WithdrawRequest = require("./withdrawRequest.model");
-const Wallet = require("./wallet.model");
+const { withdrawFromWallet } = require("./wallet.service");
 const { createNotification } =
   require("../notifications/notification.service");
 const { emitNotification } =
@@ -7,18 +7,12 @@ const { emitNotification } =
 
 /* ================= Worker Request ================= */
 const requestWithdraw = async (workerId, amount) => {
-  const wallet = await Wallet.findOne({ workerId });
-  if (!wallet) throw new Error("Wallet not found");
+  if (amount <= 0) throw new Error("Invalid amount");
 
-  if (wallet.balance < amount)
-    throw new Error("Insufficient balance");
-
-  const request = await WithdrawRequest.create({
+  return WithdrawRequest.create({
     workerId,
     amount,
   });
-
-  return request;
 };
 
 /* ================= Admin Approve ================= */
@@ -27,25 +21,18 @@ const approveWithdraw = async (requestId, adminId) => {
   if (!request || request.status !== "PENDING")
     throw new Error("Invalid request");
 
-  const wallet = await Wallet.findOne({ workerId: request.workerId });
-  if (!wallet || wallet.balance < request.amount)
-    throw new Error("Insufficient wallet balance");
-
-  wallet.balance -= request.amount;
-  wallet.transactions.push({
-    type: "WITHDRAW",
+  // ✅ تعديل الرصيد من wallet.service
+  await withdrawFromWallet({
+    workerId: request.workerId,
     amount: request.amount,
     referenceId: request._id,
   });
-
-  await wallet.save();
 
   request.status = "APPROVED";
   request.processedBy = adminId;
   request.processedAt = new Date();
   await request.save();
 
-  // 🔔 Notify worker
   await createNotification({
     userId: request.workerId,
     type: "PAYMENT_COMPLETED",
@@ -92,17 +79,8 @@ const rejectWithdraw = async (requestId, adminId, note) => {
   return request;
 };
 
-/* ================= Admin List ================= */
-const listWithdrawRequests = async (status) => {
-  const filter = status ? { status } : {};
-  return WithdrawRequest.find(filter)
-    .populate("workerId", "name email")
-    .sort({ createdAt: -1 });
-};
-
 module.exports = {
   requestWithdraw,
   approveWithdraw,
   rejectWithdraw,
-  listWithdrawRequests,
 };

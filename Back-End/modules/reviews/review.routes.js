@@ -5,7 +5,7 @@ const { authorize } = require("../../middlewares/role.middleware");
 
 /* CLIENT */
 router.post(
-  "/reviews",
+  "/",
   protect,
   authorize("client"),
   controller.createReview
@@ -13,7 +13,7 @@ router.post(
 
 /* PUBLIC */
 router.get(
-  "/reviews/worker/:workerId",
+  "/worker/:workerId",
   controller.getWorkerReviews
 );
 

@@ -8,14 +8,17 @@ const systemSettingsSchema = new mongoose.Schema(
       min: 0,
       max: 100,
     },
+
     currency: {
       type: String,
       default: "EGP",
     },
+
     maintenanceMode: {
       type: Boolean,
       default: false,
     },
+
     updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -31,4 +34,7 @@ systemSettingsSchema.statics.getSettings = async function () {
   return settings;
 };
 
-module.exports = mongoose.model("SystemSettings", systemSettingsSchema);
+module.exports = mongoose.model(
+  "SystemSettings",
+  systemSettingsSchema
+);

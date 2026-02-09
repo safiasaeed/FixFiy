@@ -7,7 +7,7 @@ router.use(protect);
 
 // Worker
 router.post(
-  "/withdraw/request",
+  "/request",
   authorize("technician"),
   controller.requestWithdraw
 );
